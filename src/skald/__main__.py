@@ -18,11 +18,11 @@ def cmd_preview(args: argparse.Namespace) -> int:
         "outside, a bird begins.",
     ]
     footer = args.footer if args.footer is not None else "the watch begins"
-    img = layout.render(verse=verse, footer=footer, now=datetime.now())
+    from .display import DryRunDisplay
+    black, red = layout.render(verse=verse, footer=footer, now=datetime.now())
     out = Path(args.out)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    img.save(out)
-    print(f"wrote {out} ({img.size[0]}x{img.size[1]} {img.mode})")
+    DryRunDisplay(out_path=out).show(black, red)
+    print(f"wrote {out} ({black.size[0]}x{black.size[1]} RGB w/ red)")
     return 0
 
 

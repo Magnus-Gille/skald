@@ -49,7 +49,7 @@ def _font_header() -> ImageFont.ImageFont:
 
 
 def _font_verse() -> ImageFont.ImageFont:
-    return _load_font("EBGaramond-Italic.ttf", 16)
+    return _load_font("Bitter-Bold.ttf", 16)
 
 
 def _font_footer() -> ImageFont.ImageFont:
@@ -66,6 +66,26 @@ def _draw_centered(draw, y: int, text: str, font) -> None:
     draw.text(((CANVAS_W - w) // 2, y), text, font=font, fill=BLACK)
 
 
+VERSE_MAX_WIDTH = CANVAS_W - 12  # 6px margin each side
+
+
+def measure_verse_overflow(lines: list[str]) -> list[dict]:
+    """Return per-line overflow info; empty list if everything fits."""
+    if not any(lines):
+        return []
+    probe = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    draw = ImageDraw.Draw(probe)
+    f = _font_verse()
+    bad = []
+    for i, line in enumerate(lines):
+        if not line:
+            continue
+        w = _text_w(draw, line, f)
+        if w > VERSE_MAX_WIDTH:
+            bad.append({"line": i + 1, "chars": len(line), "px": w, "max_px": VERSE_MAX_WIDTH})
+    return bad
+
+
 def header_text(now: datetime) -> tuple[str, str]:
     day = DAY_ABBR[now.weekday()]
     mon = MONTH_ABBR[now.month - 1]
@@ -79,45 +99,54 @@ def render(
     verse: list[str],
     footer: str,
     now: Optional[datetime] = None,
-) -> Image.Image:
-    """Render the full watch face to a 250×122 1-bit image."""
+) -> tuple[Image.Image, Image.Image]:
+    """Render the full watch face.
+
+    Returns (black_img, red_img), both 250×122 mode "1". On the tri-color
+    panel: pixels=0 in black_img → black ink; pixels=0 in red_img → red ink;
+    pixels=1 in both → bare e-paper white. Red is reserved for rubrication
+    — the roman-numeral hour and the two dotted dividers.
+    """
     now = now or datetime.now()
-    img = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
-    draw = ImageDraw.Draw(img)
+    black = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    red = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    db = ImageDraw.Draw(black)
+    dr = ImageDraw.Draw(red)
 
     f_h = _font_header()
     f_v = _font_verse()
     f_f = _font_footer()
 
-    # --- Header (y ~ 0..16)
+    # --- Header (y ~ 0..16): date black, roman-numeral hour red
     left, right = header_text(now)
-    draw.text((6, 1), left, font=f_h, fill=BLACK)
-    rw = _text_w(draw, right, f_h)
-    draw.text((CANVAS_W - rw - 6, 1), right, font=f_h, fill=BLACK)
+    db.text((6, 1), left, font=f_h, fill=BLACK)
+    rw = _text_w(db, right, f_h)
+    dr.text((CANVAS_W - rw - 6, 1), right, font=f_h, fill=BLACK)
 
-    # --- Top divider (dotted)
+    # --- Top divider (dotted, red rubrication)
     for x in range(6, CANVAS_W - 6, 3):
-        draw.point((x, 18), fill=BLACK)
+        dr.point((x, 18), fill=BLACK)
 
-    # --- Verse (y ~ 22..92): three lines, centered, generously spaced
+    # --- Verse: three lines, centered, generously spaced (black)
     lines = list(verse) + ["", "", ""]
     lines = lines[:3]
-    line_h = 18
+    line_h = 20
     block_h = line_h * 3
-    top = 22 + ((CANVAS_H - 22 - 28) - block_h) // 2  # center between dividers
+    top = 22 + ((CANVAS_H - 22 - 28) - block_h) // 2
     for i, line in enumerate(lines):
         if line:
-            _draw_centered(draw, top + i * line_h, line, f_v)
+            _draw_centered(db, top + i * line_h, line, f_v)
 
-    # --- Bottom divider
+    # --- Bottom divider (dotted, red)
     for x in range(6, CANVAS_W - 6, 3):
-        draw.point((x, CANVAS_H - 16), fill=BLACK)
+        dr.point((x, CANVAS_H - 16), fill=BLACK)
 
-    # --- Footer (y ~ CANVAS_H - 13)
-    draw.text((6, CANVAS_H - 13), footer, font=f_f, fill=BLACK)
+    # --- Footer (black)
+    db.text((6, CANVAS_H - 13), footer, font=f_f, fill=BLACK)
 
-    return img
+    return black, red
 
 
-def render_clear() -> Image.Image:
-    return Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+def render_clear() -> tuple[Image.Image, Image.Image]:
+    blank = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    return blank, blank.copy()

@@ -18,20 +18,21 @@ def _fixed_now() -> datetime:
 
 
 def test_canvas_size_and_mode():
-    img = layout.render(
+    black, red = layout.render(
         verse=["the small lamp is patient,", "the page does not hurry —", "outside, a bird begins."],
         footer="14° clear · the watch is clear",
         now=_fixed_now(),
     )
-    assert img.size == (CANVAS_W, CANVAS_H)
-    assert img.mode == "1"
+    for im in (black, red):
+        assert im.size == (CANVAS_W, CANVAS_H)
+        assert im.mode == "1"
 
 
 def test_empty_verse_renders():
-    img = layout.render(verse=["", "", ""], footer="", now=_fixed_now())
-    # Should still be 1-bit at the right size and not crash on empty strings.
-    assert img.size == (CANVAS_W, CANVAS_H)
-    assert img.mode == "1"
+    black, red = layout.render(verse=["", "", ""], footer="", now=_fixed_now())
+    for im in (black, red):
+        assert im.size == (CANVAS_W, CANVAS_H)
+        assert im.mode == "1"
 
 
 def test_header_text():
@@ -41,27 +42,33 @@ def test_header_text():
 
 
 def test_clear_is_white():
-    img = layout.render_clear()
-    assert img.size == (CANVAS_W, CANVAS_H)
-    assert img.mode == "1"
-    # All pixels should be white (1).
-    assert img.getextrema() == (1, 1)
+    black, red = layout.render_clear()
+    for im in (black, red):
+        assert im.size == (CANVAS_W, CANVAS_H)
+        assert im.mode == "1"
+        assert im.getextrema() == (1, 1)
+
+
+def test_red_plane_has_rubrication():
+    """Red plane should contain ink (dividers + hour); not be empty."""
+    _, red = layout.render(
+        verse=["a", "b", "c"], footer="", now=_fixed_now(),
+    )
+    # At least one black pixel (=red ink) somewhere in the red plane.
+    assert red.getextrema() == (0, 1), "red plane should have at least one inked pixel"
 
 
 def test_golden_match():
-    """Render with fixed inputs and compare to checked-in golden if present.
-
-    On first run with no golden, write it and pass — the file becomes the
-    reference for future runs.
-    """
-    img = layout.render(
+    """Render with fixed inputs and compare to checked-in golden if present."""
+    black, red = layout.render(
         verse=["the small lamp is patient,", "the page does not hurry —", "outside, a bird begins."],
         footer="14° clear · the watch is clear",
         now=_fixed_now(),
     )
-    gp = GOLDEN / "watch_default.png"
-    if not gp.exists():
-        img.save(gp)
-        return
-    ref = Image.open(gp).convert("1")
-    assert img.tobytes() == ref.tobytes(), "layout drifted from golden; re-render and review"
+    for plane, name in ((black, "watch_default_black.png"), (red, "watch_default_red.png")):
+        gp = GOLDEN / name
+        if not gp.exists():
+            plane.save(gp)
+            continue
+        ref = Image.open(gp).convert("1")
+        assert plane.tobytes() == ref.tobytes(), f"{name}: layout drifted; re-render and review"
