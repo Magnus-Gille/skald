@@ -1,13 +1,11 @@
 [project]
 name = "skald"
 version = "0.1.0"
-description = "Skald's Watch — a delightful e-paper display for the 2.13in HAT on a Raspberry Pi"
+description = "Skald — a small e-paper display that any agent can write to over MCP"
 requires-python = ">=3.11"
 dependencies = [
-    "anthropic>=0.40",
     "fastmcp>=2.3,<3",
     "pillow>=10.4",
-    "requests>=2.32",
     "uvicorn>=0.30",
 ]
 
@@ -15,6 +13,8 @@ dependencies = [
 pi = [
     "RPi.GPIO ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
     "spidev ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
+    "gpiozero ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
+    "lgpio ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
 ]
 dev = [
     "pytest>=8",

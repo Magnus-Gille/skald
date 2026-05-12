@@ -4,8 +4,6 @@
 set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-/home/magnus/repos/skald}"
-ENV_DIR="/etc/skald"
-STATE_DIR="/var/lib/skald"
 
 echo "==> apt deps"
 sudo apt-get update
@@ -14,23 +12,13 @@ sudo apt-get install -y \
     python3-dev libjpeg-dev zlib1g-dev libtiff6 libopenjp2-7 \
     git rsync curl
 
-echo "==> SPI enable (best-effort)"
+echo "==> SPI enable (best-effort — needs reboot to take effect)"
 if command -v raspi-config >/dev/null; then
     sudo raspi-config nonint do_spi 0 || true
 fi
 
 echo "==> groups (spi, gpio, i2c)"
 sudo usermod -aG spi,gpio,i2c "$USER" || true
-
-echo "==> dirs"
-sudo install -d -m 0750 -o root -g "$USER" "$ENV_DIR"
-sudo install -d -m 0750 -o "$USER" -g "$USER" "$STATE_DIR"
-if [ ! -f "$ENV_DIR/skald.env" ]; then
-    if [ -f "$REPO_DIR/deploy/skald.env.example" ]; then
-        sudo install -m 0640 -o root -g "$USER" "$REPO_DIR/deploy/skald.env.example" "$ENV_DIR/skald.env"
-        echo "    placed example env at $ENV_DIR/skald.env — edit it with the real ANTHROPIC_API_KEY"
-    fi
-fi
 
 echo "==> vendor the Waveshare driver"
 VENDOR_DIR="$REPO_DIR/src/skald/vendor"
@@ -54,23 +42,17 @@ echo "==> stop any stop-gap dry-run MCP (port 8765)"
 pkill -f "skald serve" || true
 sleep 1
 
-echo "==> systemd units"
-sudo install -m 0644 "$REPO_DIR/deploy/skald-mcp.service"  /etc/systemd/system/skald-mcp.service
-sudo install -m 0644 "$REPO_DIR/deploy/skald-tick.service" /etc/systemd/system/skald-tick.service
-sudo install -m 0644 "$REPO_DIR/deploy/skald-tick.timer"   /etc/systemd/system/skald-tick.timer
+echo "==> systemd unit"
+sudo install -m 0644 "$REPO_DIR/deploy/skald-mcp.service" /etc/systemd/system/skald-mcp.service
 sudo systemctl daemon-reload
 
 echo "==> enable + start"
 sudo systemctl enable --now skald-mcp.service
-sudo systemctl enable --now skald-tick.timer
 
 echo ""
 echo "Bootstrap complete."
-echo "  systemctl status skald-mcp.service skald-tick.timer"
+echo "  systemctl status skald-mcp.service"
 echo "  journalctl -u skald-mcp.service -f"
 echo ""
 echo "If SPI was just enabled, the panel won't draw until you reboot:"
 echo "  sudo reboot"
-echo ""
-echo "Once back up, fire the first real verse:"
-echo "  sudo systemctl start skald-tick.service"

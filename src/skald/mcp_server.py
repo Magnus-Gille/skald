@@ -55,8 +55,8 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
     def display_set_footer(text: str) -> dict:
         """Override the footer line (the small bottom strip).
 
-        Use this to surface a one-off note like a delivery, a reminder,
-        or a small joke. The next hourly tick will overwrite it.
+        Use this to surface a one-off note, a small joke, weather, or
+        anything else that fits in ~44 characters.
         """
         state = State.load()
         err = state.take_token()
@@ -93,12 +93,15 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
 
     @mcp.tool
     def display_status() -> dict:
-        """Return what is currently shown plus refresh stats."""
+        """Return what is currently shown plus refresh stats and recent verses.
+
+        `recent_verses` is the last ~24 verses shown — use this to avoid
+        repeating yourself when composing a new one.
+        """
         state = State.load()
         return {
             "verse": state.verse,
             "verse_source": state.verse_source,
-            "verse_stale": state.verse_stale,
             "footer": state.footer,
             "footer_source": state.footer_source,
             "last_full_refresh": state.last_full_refresh,
@@ -106,6 +109,7 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
             "partials_since_full": state.partials_since_full,
             "refresh_budget_used_this_hour": state.bucket_used,
             "refresh_budget_remaining_this_hour": max(0, 6 - state.bucket_used),
+            "recent_verses": state.recent_verses,
         }
 
     @mcp.tool

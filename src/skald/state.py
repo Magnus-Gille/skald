@@ -32,10 +32,9 @@ def state_path() -> Path:
 @dataclass
 class State:
     verse: list[str] = field(default_factory=lambda: ["", "", ""])
-    verse_source: str = "boot"  # "haiku-4-5", "fallback", "mcp", "boot"
-    verse_stale: bool = False
+    verse_source: str = "boot"  # "mcp" once an agent has written
     footer: str = "the watch begins"
-    footer_source: str = "boot"  # "tick", "mcp"
+    footer_source: str = "boot"  # "mcp"
     last_full_refresh: float = 0.0
     last_partial_refresh: float = 0.0
     partials_since_full: int = 0
