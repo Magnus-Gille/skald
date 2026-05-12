@@ -1,0 +1,14 @@
+[Unit]
+Description=Skald — hourly verse composition + render
+After=network-online.target skald-mcp.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=magnus
+Group=magnus
+WorkingDirectory=/home/magnus/repos/skald
+EnvironmentFile=/etc/skald/skald.env
+ExecStart=/home/magnus/repos/skald/.venv/bin/python -m skald tick
+StateDirectory=skald
+StateDirectoryMode=0750

@@ -1,0 +1,12 @@
+[Unit]
+Description=Skald — fire skald-tick every hour
+Requires=skald-tick.service
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=30
+AccuracySec=1m
+
+[Install]
+WantedBy=timers.target

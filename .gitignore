@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.python-version
+.env
+deploy/skald.env
+/tmp-preview/
+preview.png
+src/skald/vendor/

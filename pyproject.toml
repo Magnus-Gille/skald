@@ -1,0 +1,39 @@
+[project]
+name = "skald"
+version = "0.1.0"
+description = "Skald's Watch — a delightful e-paper display for the 2.13in HAT on a Raspberry Pi"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40",
+    "fastmcp>=2.3,<3",
+    "pillow>=10.4",
+    "requests>=2.32",
+    "uvicorn>=0.30",
+]
+
+[project.optional-dependencies]
+pi = [
+    "RPi.GPIO ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
+    "spidev ; platform_machine == 'aarch64' or platform_machine == 'armv7l'",
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+skald = "skald.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/skald"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
