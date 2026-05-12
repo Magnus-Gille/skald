@@ -50,6 +50,10 @@ fi
 "$REPO_DIR/.venv/bin/pip" install --upgrade pip
 "$REPO_DIR/.venv/bin/pip" install -e "$REPO_DIR[pi]"
 
+echo "==> stop any stop-gap dry-run MCP (port 8765)"
+pkill -f "skald serve" || true
+sleep 1
+
 echo "==> systemd units"
 sudo install -m 0644 "$REPO_DIR/deploy/skald-mcp.service"  /etc/systemd/system/skald-mcp.service
 sudo install -m 0644 "$REPO_DIR/deploy/skald-tick.service" /etc/systemd/system/skald-tick.service
@@ -64,4 +68,9 @@ echo ""
 echo "Bootstrap complete."
 echo "  systemctl status skald-mcp.service skald-tick.timer"
 echo "  journalctl -u skald-mcp.service -f"
-echo "  curl http://localhost:8765/mcp -X POST -H 'content-type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'"
+echo ""
+echo "If SPI was just enabled, the panel won't draw until you reboot:"
+echo "  sudo reboot"
+echo ""
+echo "Once back up, fire the first real verse:"
+echo "  sudo systemctl start skald-tick.service"
