@@ -1,4 +1,4 @@
-"""FastMCP HTTP server — five tools to drive Skald's display."""
+"""FastMCP HTTP server — six tools to drive Skald's display."""
 
 from __future__ import annotations
 
@@ -65,6 +65,9 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         empty, returns `{"ok": false, "error": "..."}` without touching
         the panel. Always read `display_status` first to check the budget
         and avoid repeating yourself (see `recent_verses`).
+
+        If you're also changing the footer, prefer `display_set_panel`
+        instead — it updates both in a single refresh and costs one token.
         """
         state = State.load()
         err = state.take_token()
@@ -102,6 +105,9 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         Triggers a slow tri-color refresh and counts 1 against the
         6/hour token bucket. Returns `{"ok": false, "error": "..."}` if
         the budget is empty.
+
+        If you're also changing the verse, prefer `display_set_panel`
+        instead — it updates both in a single refresh and costs one token.
         """
         state = State.load()
         err = state.take_token()
@@ -117,6 +123,93 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         state.record_refresh(partial=not full)
         state.save()
         return {"ok": True, "footer": text, "full_refresh": full}
+
+    @mcp.tool
+    def display_set_panel(
+        line1: Optional[str] = None,
+        line2: Optional[str] = None,
+        line3: Optional[str] = None,
+        footer: Optional[str] = None,
+    ) -> dict:
+        """Update verse and/or footer atomically — one refresh, one token.
+
+        Use this when you'd otherwise call `display_set_verse` and
+        `display_set_footer` back-to-back: those would trigger two
+        separate ~15-second panel refreshes and spend two bucket tokens
+        for what is conceptually a single moment. This tool composes the
+        framebuffer once, refreshes the panel once, and bills one token.
+
+        Arguments are all optional, with two rules:
+          - The verse is updated as a unit: provide all three lines or
+            none. Pass `""` to blank a line.
+          - At least one of (verse, footer) must be provided.
+
+        Same width/length constraints as the single-field tools:
+        verse lines must fit the panel pixel-width; footer ≤ 44 chars.
+        Validation runs before the token is consumed, so a malformed
+        call does not cost a refresh slot.
+        """
+        state = State.load()
+
+        verse_lines = (line1, line2, line3)
+        verse_provided_count = sum(v is not None for v in verse_lines)
+        if 0 < verse_provided_count < 3:
+            return {
+                "ok": False,
+                "error": (
+                    "verse is updated as a unit — provide all three "
+                    "lines together (pass empty strings to blank a line) "
+                    "or omit them all to leave the verse unchanged"
+                ),
+            }
+        verse_provided = verse_provided_count == 3
+        footer_provided = footer is not None
+
+        if not verse_provided and not footer_provided:
+            return {
+                "ok": False,
+                "error": "nothing to update — provide verse (all 3 lines) and/or footer",
+            }
+
+        if verse_provided:
+            lines = [line1, line2, line3]
+            too_wide = layout.measure_verse_overflow(lines)
+            if too_wide:
+                return {
+                    "ok": False,
+                    "error": (
+                        "verse line too wide for the panel — keep each line to "
+                        "~27 characters of normal English (less for wide letters "
+                        f"like W/M). Overflow: {too_wide}"
+                    ),
+                }
+        if footer_provided and len(footer) > 44:
+            return {"ok": False, "error": "footer must be at most 44 characters"}
+
+        err = state.take_token()
+        if err:
+            return {"ok": False, "error": err}
+
+        if verse_provided:
+            state.verse = lines
+            state.verse_source = "mcp"
+            state.remember_verse(lines)
+        if footer_provided:
+            state.footer = footer
+            state.footer_source = "mcp"
+
+        black, red = layout.render(verse=state.verse, footer=state.footer)
+        full = state.needs_full_refresh()
+        _disp().show(black, red, partial=not full)
+        state.record_refresh(partial=not full)
+        state.save()
+
+        result: dict = {"ok": True, "full_refresh": full}
+        if verse_provided:
+            result["verse"] = state.verse
+        if footer_provided:
+            result["footer"] = state.footer
+        return result
 
     @mcp.tool
     def display_clear() -> dict:
