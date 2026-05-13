@@ -151,6 +151,7 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         - `recent_verses`: the last 24 verses, newest first. Avoid repeating these.
         """
         state = State.load()
+        used = state.effective_bucket_used()
         return {
             "verse": state.verse,
             "verse_source": state.verse_source,
@@ -159,8 +160,8 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
             "last_full_refresh": state.last_full_refresh,
             "last_partial_refresh": state.last_partial_refresh,
             "partials_since_full": state.partials_since_full,
-            "refresh_budget_used_this_hour": state.bucket_used,
-            "refresh_budget_remaining_this_hour": max(0, 6 - state.bucket_used),
+            "refresh_budget_used_this_hour": used,
+            "refresh_budget_remaining_this_hour": max(0, 6 - used),
             "recent_verses": state.recent_verses,
         }
 

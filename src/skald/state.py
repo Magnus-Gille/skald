@@ -69,6 +69,17 @@ class State:
             return True
         return False
 
+    def effective_bucket_used(self) -> int:
+        """How many tokens are consumed in the *current* window.
+
+        Returns 0 if the window has already elapsed — the reset is lazy and
+        only persisted on the next `take_token`, but callers reading the
+        budget should see the post-reset value.
+        """
+        if time.time() - self.bucket_window_start > 3600:
+            return 0
+        return self.bucket_used
+
     def take_token(self) -> Optional[str]:
         """Returns None if a refresh is allowed, otherwise an error message."""
         now = time.time()
