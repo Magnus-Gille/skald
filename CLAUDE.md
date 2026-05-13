@@ -9,13 +9,14 @@ A small e-paper display: Raspberry Pi 3A+ (host `skald`) + Waveshare 2.13" V4 pa
 
 ## MCP tools
 
-- `display_set_verse(line1, line2, line3)` — set the three-line verse (partial refresh).
-- `display_set_footer(text)` — set the footer line (partial refresh).
+- `display_set_panel(line1?, line2?, line3?, footer?)` — **preferred** for combined updates: sets verse and/or footer in one render, one refresh, one token. Validation runs before the token is consumed.
+- `display_set_verse(line1, line2, line3)` — set the three-line verse only (partial refresh).
+- `display_set_footer(text)` — set the footer line only (partial refresh).
 - `display_clear()` — full refresh to blank, panel sleep.
 - `display_status()` — current verse/footer, refresh stats, recent history.
 - `display_peek()` — base64 PNG of the current framebuffer.
 
-All five count against a 6/hour token bucket to avoid agents burning the panel.
+All except `display_status` and `display_peek` count against a 6/hour token bucket to avoid agents burning the panel.
 
 ## Conventions
 
