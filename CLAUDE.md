@@ -9,14 +9,36 @@ A small e-paper display: Raspberry Pi 3A+ (host `skald`) + Waveshare 2.13" V4 pa
 
 ## MCP tools
 
-- `display_set_panel(line1?, line2?, line3?, footer?)` — **preferred** for combined updates: sets verse and/or footer in one render, one refresh, one token. Validation runs before the token is consumed.
-- `display_set_verse(line1, line2, line3)` — set the three-line verse only (partial refresh).
-- `display_set_footer(text)` — set the footer line only (partial refresh).
+- `display_set_panel(line1?, line2?, line3?, footer?, style?)` — **preferred** for combined updates: sets verse and/or footer in one render, one refresh, one token. Validation runs before the token is consumed.
+- `display_set_verse(line1, line2, line3, style?)` — set the three-line verse only (partial refresh).
+- `display_set_footer(text, style?)` — set the footer line only (partial refresh).
+- `display_set_avatar(data_base64)` — upload a 1-bit avatar into the left 50×122 px column; all text shifts into the right 200px column. Accepts any PIL-readable image, auto-scaled.
+- `display_clear_avatar()` — remove the avatar and return to full-width text layout.
 - `display_clear()` — full refresh to blank, panel sleep.
-- `display_status()` — current verse/footer, refresh stats, recent history.
+- `display_status()` — current verse/footer/style/avatar, refresh stats, recent history.
 - `display_peek()` — base64 PNG of the current framebuffer.
 
 All except `display_status` and `display_peek` count against a 6/hour token bucket to avoid agents burning the panel.
+
+## Font styles
+
+Pass `style` to any write tool. Style persists in state until changed.
+
+| Style | Verse font | Header | Footer |
+|---|---|---|---|
+| `serif` | Bitter Bold 16pt (default) | Inter Medium 11pt | Inter Regular 10pt |
+| `pixel` | HaxrCorp4089 20pt | helvb08 10pt | Born2bSportyV2 10pt |
+| `sporty` | Born2bSportyV2 15pt | Born2bSportyV2 10pt | helvb08 10pt |
+| `gravity` | GravityBold8 16pt (all-caps) | helvb08 10pt | helvb08 10pt |
+
+## Avatar layout
+
+When an avatar is set, the panel splits into two columns:
+- **Left 50×122 px**: avatar image (any source, scaled to fill)
+- **Dotted red vertical separator** at x=50
+- **Right 200×122 px**: header, verse (centered in right column), footer
+
+Verse max width narrows from 238px to ~192px when avatar is active — lines must be a bit shorter. The MCP server measures and rejects overflows before spending a token.
 
 ## Conventions
 
