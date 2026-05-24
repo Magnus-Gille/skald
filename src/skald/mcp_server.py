@@ -48,17 +48,34 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
 
     def _render_current(state: State):
         """Returns (black, red) planes."""
-        return layout.render(verse=state.verse, footer=state.footer)
+        return layout.render(
+            verse=state.verse,
+            footer=state.footer,
+            style=state.font_style,
+            avatar=state.load_avatar(),
+        )
+
+    def _resolve_style(style: Optional[str], state: State) -> tuple[str, Optional[str]]:
+        """Return (effective_style, error_or_None)."""
+        if style is None:
+            return state.font_style, None
+        if style not in layout.FONT_STYLES:
+            valid = ", ".join(sorted(layout.FONT_STYLES))
+            return state.font_style, f"unknown style '{style}'; valid options: {valid}"
+        return style, None
 
     @mcp.tool
-    def display_set_verse(line1: str, line2: str, line3: str) -> dict:
+    def display_set_verse(line1: str, line2: str, line3: str, style: Optional[str] = None) -> dict:
         """Set the three-line verse — the heart of Skald's panel.
 
-        Lines render in bold slab serif (Bitter Bold 16pt), centered.
-        Width is the hard constraint, not character count: ~27 chars of
-        normal English fits; wide letters (W, M) cap closer to ~14.
-        The server measures actual pixel width and returns an error if
-        any line overflows. Pass empty strings to blank a line.
+        Lines render centered in the chosen font style (default: "serif").
+        Width is the hard constraint, not character count: the server
+        measures actual pixel width and returns an error if any line
+        overflows. Pass empty strings to blank a line.
+
+        `style` selects the font preset: "serif" (Bitter Bold, default),
+        "pixel" (HaxrCorp4089 + Born2bSportyV2), "sporty" (Born2bSportyV2),
+        or "gravity" (GravityBold8). Omit to keep the current style.
 
         Triggers a slow tri-color refresh (~15 seconds, visible flicker)
         and counts 1 against the 6/hour token bucket. If the bucket is
@@ -70,11 +87,12 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         instead — it updates both in a single refresh and costs one token.
         """
         state = State.load()
-        err = state.take_token()
-        if err:
-            return {"ok": False, "error": err}
+        effective_style, style_err = _resolve_style(style, state)
+        if style_err:
+            return {"ok": False, "error": style_err}
         lines = [line1, line2, line3]
-        too_wide = layout.measure_verse_overflow(lines)
+        has_avatar = state.avatar_path is not None
+        too_wide = layout.measure_verse_overflow(lines, effective_style, has_avatar)
         if too_wide:
             return {
                 "ok": False,
@@ -84,23 +102,33 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
                     f"like W/M). Overflow: {too_wide}"
                 ),
             }
+        err = state.take_token()
+        if err:
+            return {"ok": False, "error": err}
         state.verse = lines
         state.verse_source = "mcp"
+        state.font_style = effective_style
         state.remember_verse(lines)
-        black, red = layout.render(verse=lines, footer=state.footer)
+        black, red = layout.render(
+            verse=lines, footer=state.footer, style=effective_style,
+            avatar=state.load_avatar(),
+        )
         full = state.needs_full_refresh()
         _disp().show(black, red, partial=not full)
         state.record_refresh(partial=not full)
         state.save()
-        return {"ok": True, "verse": lines, "full_refresh": full}
+        return {"ok": True, "verse": lines, "style": effective_style, "full_refresh": full}
 
     @mcp.tool
-    def display_set_footer(text: str) -> dict:
+    def display_set_footer(text: str, style: Optional[str] = None) -> dict:
         """Set the footer line (small strip under the bottom divider).
 
-        At most **44 characters** in 10pt regular sans. The footer holds
-        a single grace note — a place, a weather hint, a calendar peek,
-        a date. Not a status dump.
+        At most **44 characters** in the footer font of the current style.
+        The footer holds a single grace note — a place, a weather hint,
+        a calendar peek, a date. Not a status dump.
+
+        `style` optionally changes the font preset for the whole panel:
+        "serif" (default), "pixel", "sporty", or "gravity".
 
         Triggers a slow tri-color refresh and counts 1 against the
         6/hour token bucket. Returns `{"ok": false, "error": "..."}` if
@@ -110,19 +138,26 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         instead — it updates both in a single refresh and costs one token.
         """
         state = State.load()
+        effective_style, style_err = _resolve_style(style, state)
+        if style_err:
+            return {"ok": False, "error": style_err}
+        if len(text) > 44:
+            return {"ok": False, "error": "footer must be at most 44 characters"}
         err = state.take_token()
         if err:
             return {"ok": False, "error": err}
-        if len(text) > 44:
-            return {"ok": False, "error": "footer must be at most 44 characters"}
         state.footer = text
         state.footer_source = "mcp"
-        black, red = layout.render(verse=state.verse, footer=text)
+        state.font_style = effective_style
+        black, red = layout.render(
+            verse=state.verse, footer=text, style=effective_style,
+            avatar=state.load_avatar(),
+        )
         full = state.needs_full_refresh()
         _disp().show(black, red, partial=not full)
         state.record_refresh(partial=not full)
         state.save()
-        return {"ok": True, "footer": text, "full_refresh": full}
+        return {"ok": True, "footer": text, "style": effective_style, "full_refresh": full}
 
     @mcp.tool
     def display_set_panel(
@@ -130,6 +165,7 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         line2: Optional[str] = None,
         line3: Optional[str] = None,
         footer: Optional[str] = None,
+        style: Optional[str] = None,
     ) -> dict:
         """Update verse and/or footer atomically — one refresh, one token.
 
@@ -142,14 +178,24 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         Arguments are all optional, with two rules:
           - The verse is updated as a unit: provide all three lines or
             none. Pass `""` to blank a line.
-          - At least one of (verse, footer) must be provided.
+          - At least one of (verse, footer, style) must be provided.
+
+        `style` selects the font preset for the whole panel:
+          - "serif" — Bitter Bold 16pt verse, Inter header/footer (default)
+          - "pixel" — HaxrCorp4089 verse, helvb08 header, Born2bSportyV2 footer
+          - "sporty" — Born2bSportyV2 verse and header, helvb08 footer
+          - "gravity" — GravityBold8 verse, helvb08 header/footer
 
         Same width/length constraints as the single-field tools:
-        verse lines must fit the panel pixel-width; footer ≤ 44 chars.
-        Validation runs before the token is consumed, so a malformed
-        call does not cost a refresh slot.
+        verse lines must fit the panel pixel-width (measured using the chosen
+        font); footer ≤ 44 chars. Validation runs before the token is
+        consumed, so a malformed call does not cost a refresh slot.
         """
         state = State.load()
+
+        effective_style, style_err = _resolve_style(style, state)
+        if style_err:
+            return {"ok": False, "error": style_err}
 
         verse_lines = (line1, line2, line3)
         verse_provided_count = sum(v is not None for v in verse_lines)
@@ -164,16 +210,18 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
             }
         verse_provided = verse_provided_count == 3
         footer_provided = footer is not None
+        style_changed = style is not None and effective_style != state.font_style
 
-        if not verse_provided and not footer_provided:
+        if not verse_provided and not footer_provided and not style_changed:
             return {
                 "ok": False,
-                "error": "nothing to update — provide verse (all 3 lines) and/or footer",
+                "error": "nothing to update — provide verse (all 3 lines), footer, and/or style",
             }
 
         if verse_provided:
             lines = [line1, line2, line3]
-            too_wide = layout.measure_verse_overflow(lines)
+            has_avatar = state.avatar_path is not None
+            too_wide = layout.measure_verse_overflow(lines, effective_style, has_avatar)
             if too_wide:
                 return {
                     "ok": False,
@@ -197,19 +245,86 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         if footer_provided:
             state.footer = footer
             state.footer_source = "mcp"
+        state.font_style = effective_style
 
-        black, red = layout.render(verse=state.verse, footer=state.footer)
+        black, red = layout.render(
+            verse=state.verse, footer=state.footer, style=effective_style,
+            avatar=state.load_avatar(),
+        )
         full = state.needs_full_refresh()
         _disp().show(black, red, partial=not full)
         state.record_refresh(partial=not full)
         state.save()
 
-        result: dict = {"ok": True, "full_refresh": full}
+        result: dict = {"ok": True, "style": effective_style, "full_refresh": full}
         if verse_provided:
             result["verse"] = state.verse
         if footer_provided:
             result["footer"] = state.footer
         return result
+
+    @mcp.tool
+    def display_set_avatar(data_base64: str) -> dict:
+        """Upload a 1-bit avatar image for the left column of the panel.
+
+        The avatar occupies the leftmost 50×122 px of the display. All
+        text content (header, verse, footer) shifts into the remaining
+        200×122 px right column, separated by a dotted red vertical line.
+
+        `data_base64`: base64-encoded PNG (or any PIL-readable format).
+        Any size and mode is accepted — the image is converted to 1-bit
+        and scaled to exactly 50×122 px. Costs one refresh token.
+
+        To remove the avatar and return to the full-width layout, call
+        `display_clear_avatar`.
+        """
+        import base64, io
+        state = State.load()
+        try:
+            raw = base64.b64decode(data_base64)
+            img = Image.open(io.BytesIO(raw))
+        except Exception as e:
+            return {"ok": False, "error": f"could not decode image: {e}"}
+        err = state.take_token()
+        if err:
+            return {"ok": False, "error": err}
+        save_path = state.avatar_save_path()
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        img.convert("1").resize((layout.AVATAR_W, layout.CANVAS_H), Image.LANCZOS).save(save_path)
+        state.avatar_path = str(save_path)
+        black, red = layout.render(
+            verse=state.verse, footer=state.footer, style=state.font_style,
+            avatar=state.load_avatar(),
+        )
+        full = state.needs_full_refresh()
+        _disp().show(black, red, partial=not full)
+        state.record_refresh(partial=not full)
+        state.save()
+        return {"ok": True, "avatar_size_px": f"{layout.AVATAR_W}×{layout.CANVAS_H}", "full_refresh": full}
+
+    @mcp.tool
+    def display_clear_avatar() -> dict:
+        """Remove the avatar and return to the full-width text layout.
+
+        Costs one refresh token.
+        """
+        state = State.load()
+        if not state.avatar_path:
+            return {"ok": True, "note": "no avatar was set"}
+        err = state.take_token()
+        if err:
+            return {"ok": False, "error": err}
+        try:
+            Path(state.avatar_path).unlink(missing_ok=True)
+        except OSError:
+            pass
+        state.avatar_path = None
+        black, red = layout.render(verse=state.verse, footer=state.footer, style=state.font_style)
+        full = state.needs_full_refresh()
+        _disp().show(black, red, partial=not full)
+        state.record_refresh(partial=not full)
+        state.save()
+        return {"ok": True, "full_refresh": full}
 
     @mcp.tool
     def display_clear() -> dict:
@@ -250,6 +365,10 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
             "verse_source": state.verse_source,
             "footer": state.footer,
             "footer_source": state.footer_source,
+            "font_style": state.font_style,
+            "available_styles": list(layout.FONT_STYLES.keys()),
+            "avatar": "set" if state.avatar_path else "none",
+            "avatar_size_px": f"{layout.AVATAR_W}×{layout.CANVAS_H}" if state.avatar_path else None,
             "last_full_refresh": state.last_full_refresh,
             "last_partial_refresh": state.last_partial_refresh,
             "partials_since_full": state.partials_since_full,

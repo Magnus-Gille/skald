@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from PIL import Image
+
 STATE_PATH_ENV = "SKALD_STATE_PATH"
 _DEFAULT_STATE_PATH = Path("/var/lib/skald/state.json")
 _LOCAL_FALLBACK = Path.home() / ".local/share/skald/state.json"
@@ -35,6 +37,8 @@ class State:
     verse_source: str = "boot"  # "mcp" once an agent has written
     footer: str = "the watch begins"
     footer_source: str = "boot"  # "mcp"
+    font_style: str = "serif"
+    avatar_path: Optional[str] = None
     last_full_refresh: float = 0.0
     last_partial_refresh: float = 0.0
     partials_since_full: int = 0
@@ -106,3 +110,14 @@ class State:
         if not any(lines):
             return
         self.recent_verses = ([list(lines)] + self.recent_verses)[:24]
+
+    def load_avatar(self) -> Optional[Image.Image]:
+        if not self.avatar_path:
+            return None
+        try:
+            return Image.open(self.avatar_path)
+        except OSError:
+            return None
+
+    def avatar_save_path(self) -> Path:
+        return state_path().parent / "avatar.png"

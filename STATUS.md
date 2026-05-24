@@ -1,9 +1,28 @@
 # Skald — Status
 
-**Last session:** 2026-05-13
-**Branch:** master (up to date with origin)
+**Last session:** 2026-05-22
+**Branch:** master
 
 ## Completed This Session
+
+- Designed a minimal display-native lofi cassette mark for the 2.13" B/W/R panel:
+  - `assets/lofi-avatar-preview.png` — composed RGB preview at exactly
+    250×122 (`30,500` panel pixels)
+  - `assets/lofi-avatar-black.png` — 1-bit black plane
+  - `assets/lofi-avatar-red.png` — 1-bit red plane
+  - Ink bounding box is `x=7..47`, `y=29..89`, so it fits in the left fifth
+    of the 250px-wide display.
+  - Current ink counts: 906 black pixels and 401 red pixels.
+- Added `scripts/render_lofi_avatar.py` as the source renderer for the asset.
+  It draws directly on separate 1-bit planes and clears red where black ink is
+  present, matching the display compositor's black-over-red priority.
+- Added `tests/test_lofi_avatar.py` to guard canvas size, mode, red/black use,
+  no plane overlap, and left-fifth placement.
+- Verification: `uv run pytest` passes (`9 passed`);
+  `uv run ruff check scripts/render_lofi_avatar.py tests/test_lofi_avatar.py`
+  passes.
+
+## Previous Session
 
 - `842c9fd` — fix: `display_status` was reporting stale bucket state after
   window expiry. Added `State.effective_bucket_used()` so the reported
@@ -24,7 +43,8 @@
 
 ## In Progress
 
-Nothing. All changes shipped and deployed.
+Nothing. Avatar asset is generated and tested locally; not committed or
+deployed.
 
 ## Blockers
 
@@ -36,11 +56,14 @@ Nothing. All changes shipped and deployed.
 
 1. **Watch the hourly hook in the wild** — adjust nudge text or throttle if it
    produces filler rather than meaningful verses.
-2. **Makefile deploy target** — `make deploy` to replace the manual
+2. **Decide how to expose image assets over MCP** if the avatar should be
+   displayed on hardware rather than kept as a repo asset. Current MCP tools
+   only expose text/verse rendering, not arbitrary bitmap display.
+3. **Makefile deploy target** — `make deploy` to replace the manual
    push + ssh + pull + restart sequence.
-3. **Tailscale** — expose `skald.local:8765` for off-LAN (Desktop/Web/Mobile)
+4. **Tailscale** — expose `skald.local:8765` for off-LAN (Desktop/Web/Mobile)
    agent access.
-4. **Larger display** — Top picks from 2026-05-12 research:
+5. **Larger display** — Top picks from 2026-05-12 research:
    - Pimoroni Inky Impression 4" (7-color, 640×400) @ Botland
    - Waveshare 4.2" tri-color B/W/R (400×300) @ BerryBase
    - Waveshare 4.2" mono (400×300) @ BerryBase — cheapest, fastest refresh
