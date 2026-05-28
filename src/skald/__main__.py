@@ -19,10 +19,14 @@ def cmd_preview(args: argparse.Namespace) -> int:
         "VALHALLA  BRD",
         "TOMORROW  DLY",
     ]
-    black, red = layout.render_board(rows, seam=not args.no_seam)
+    if args.style == layout.BOARD_STYLE:
+        black, red = layout.render_board(rows, seam=not args.no_seam)
+    else:
+        footer = args.footer if args.footer is not None else "the watch begins"
+        black, red = layout.render(verse=rows[:3], footer=footer, style=args.style)
     out = Path(args.out)
     DryRunDisplay(out_path=out).show(black, red)
-    print(f"wrote {out} ({black.size[0]}x{black.size[1]} RGB w/ red)")
+    print(f"wrote {out} ({black.size[0]}x{black.size[1]} RGB w/ red, style={args.style})")
     return 0
 
 
@@ -47,9 +51,13 @@ def main(argv: list[str] | None = None) -> int:
     p_prev = sub.add_parser("preview", help="render a sample board to a PNG")
     p_prev.add_argument("--out", default="/tmp/skald-preview.png")
     p_prev.add_argument("--rows", nargs="+", metavar="ROW", default=None,
-                        help="board rows (uppercased, padded to a grid)")
+                        help="content lines (board rows / verse lines)")
+    p_prev.add_argument("--style", default="board",
+                        help="serif | pixel | sporty | gravity | board")
+    p_prev.add_argument("--footer", default=None,
+                        help="footer text (ignored for board style)")
     p_prev.add_argument("--no-seam", action="store_true",
-                        help="omit the red split-flap seam")
+                        help="omit the red split-flap seam (board style)")
     p_prev.set_defaults(func=cmd_preview)
 
     p_serve = sub.add_parser("serve", help="run the MCP HTTP server")

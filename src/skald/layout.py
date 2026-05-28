@@ -45,8 +45,18 @@ FONT_STYLES: dict[str, dict] = {
         "footer": ("helvb08.ttf", 10),
         "line_h": 20,
     },
+    # Airport split-flap board: the verse lines become rows of flap tiles.
+    # No header, no footer, no avatar — render() routes this style to
+    # render_board(). The font entry is unused (render_board sizes its own).
+    "board": {
+        "verse": ("GravityBold8.ttf", 16),
+        "header": ("GravityBold8.ttf", 10),
+        "footer": ("GravityBold8.ttf", 10),
+        "line_h": 20,
+    },
 }
 DEFAULT_STYLE = "serif"
+BOARD_STYLE = "board"
 
 ROMAN = [
     "",
@@ -112,6 +122,14 @@ def measure_verse_overflow(
     """Return per-line overflow info; empty list if everything fits."""
     if not any(lines):
         return []
+    if style == BOARD_STYLE:
+        # Board scales tiles to the longest row; the only hard limit is the
+        # column count, beyond which a row would be truncated.
+        bad = []
+        for i, line in enumerate(lines):
+            if line and len(line) > BOARD_MAX_COLS:
+                bad.append({"line": i + 1, "chars": len(line), "max_chars": BOARD_MAX_COLS})
+        return bad
     probe = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
     draw = ImageDraw.Draw(probe)
     f_verse, _, _ = _fonts(style)
@@ -153,6 +171,10 @@ def render(
     avatar: a PIL image of any size/mode. It will be converted to 1-bit and
     scaled to fill the left AVATAR_W × CANVAS_H column.
     """
+    if style == BOARD_STYLE:
+        rows = [ln for ln in (verse or []) if ln and ln.strip()]
+        return render_board(rows or [""])
+
     now = now or datetime.now()
     black = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
     red = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
