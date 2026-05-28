@@ -208,3 +208,79 @@ def render(
 def render_clear() -> tuple[Image.Image, Image.Image]:
     blank = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
     return blank, blank.copy()
+
+
+# --- Airport split-flap board -------------------------------------------------
+
+BOARD_FONT = "GravityBold8.ttf"
+BOARD_MARGIN = 3
+BOARD_GAP = 2
+BOARD_MAX_COLS = 16
+
+
+def _fit_board_font(tile_w: int, tile_h: int):
+    """Largest BOARD_FONT that fits comfortably inside a tile.
+
+    Tiles are usually taller than wide, so width is the binding constraint —
+    size to the narrow dimension or letters spill past the tile edges.
+    """
+    size = max(6, int(min(tile_w, tile_h) * 0.92))
+    return _load_font(BOARD_FONT, size)
+
+
+def render_board(
+    rows: list[str],
+    seam: bool = True,
+) -> tuple[Image.Image, Image.Image]:
+    """Render text as a grid of split-flap tiles — an airport departures board.
+
+    Each character sits in its own black tile with the letter in reverse video
+    (white on black). A thin red seam cuts across the middle of every tile,
+    the way a real split-flap card hinges. No header, no footer — just the
+    block. Rows are uppercased and padded to a common width so the whole thing
+    reads as one solid rectangle of flaps.
+
+    Returns (black_img, red_img), both 250×122 mode "1", same convention as
+    `render`: 0 = ink, 1 = bare panel; red plane carries the seam.
+    """
+    black = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    red = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    db = ImageDraw.Draw(black)
+    dr = ImageDraw.Draw(red)
+
+    rows = [r.upper() for r in rows if r is not None] or [""]
+    ncols = min(BOARD_MAX_COLS, max(1, max(len(r) for r in rows)))
+    nrows = len(rows)
+
+    avail_w = CANVAS_W - 2 * BOARD_MARGIN - (ncols - 1) * BOARD_GAP
+    avail_h = CANVAS_H - 2 * BOARD_MARGIN - (nrows - 1) * BOARD_GAP
+    tile_w = avail_w // ncols
+    tile_h = avail_h // nrows
+
+    grid_w = ncols * tile_w + (ncols - 1) * BOARD_GAP
+    grid_h = nrows * tile_h + (nrows - 1) * BOARD_GAP
+    ox = (CANVAS_W - grid_w) // 2
+    oy = (CANVAS_H - grid_h) // 2
+
+    font = _fit_board_font(tile_w, tile_h)
+
+    for r, row in enumerate(rows):
+        padded = row[:ncols].ljust(ncols)
+        for c in range(ncols):
+            ch = padded[c]
+            x0 = ox + c * (tile_w + BOARD_GAP)
+            y0 = oy + r * (tile_h + BOARD_GAP)
+            x1 = x0 + tile_w - 1
+            y1 = y0 + tile_h - 1
+            db.rectangle([x0, y0, x1, y1], fill=BLACK)
+            if ch != " ":
+                db.text(
+                    (x0 + tile_w / 2, y0 + tile_h / 2),
+                    ch, font=font, fill=WHITE, anchor="mm",
+                )
+            if seam:
+                ymid = y0 + tile_h // 2
+                db.line([x0, ymid, x1, ymid], fill=WHITE)   # carve a bare seam
+                dr.line([x0, ymid, x1, ymid], fill=BLACK)   # paint it red
+
+    return black, red
