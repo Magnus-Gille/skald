@@ -30,7 +30,16 @@ Pass `style` to any write tool. Style persists in state until changed.
 | `pixel` | HaxrCorp4089 20pt | helvb08 10pt | Born2bSportyV2 10pt |
 | `sporty` | Born2bSportyV2 15pt | Born2bSportyV2 10pt | helvb08 10pt |
 | `gravity` | GravityBold8 16pt (all-caps) | helvb08 10pt | helvb08 10pt |
+| `blocky` | Born2bSportyV2, auto-fit | — (none) | — (none) |
 | `board` | GravityBold8, auto-sized | — (none) | — (none) |
+
+`blocky` is **pure centered text**, no header/footer/avatar/dividers. The font
+size is **auto-fit**: `render_plain()` picks the largest size that fits every
+line within the panel width *and* gives each line an even vertical band — so 3
+short lines render big, while 4–5 longer lines shrink just enough to fill. There
+is therefore no width limit to overflow (validation is a no-op for this style).
+More than three rows are supported by splitting on `\n` inside the three MCP
+verse fields. Footer/avatar in state are ignored while active.
 
 `board` is the **airport split-flap** layout, structurally different from the
 others: the verse lines become rows of black flap tiles with white reverse-video
