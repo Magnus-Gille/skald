@@ -77,6 +77,10 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         "pixel" (HaxrCorp4089 + Born2bSportyV2), "sporty" (Born2bSportyV2),
         or "gravity" (GravityBold8). Omit to keep the current style.
 
+        "blocky" is pure centered text (Born2bSportyV2), no header/footer/
+        avatar, auto-fit to fill the panel — give it 3 short lines for big
+        text or up to ~5 (split fields on "\\n") for a fuller panel.
+
         "board" is special — the airport split-flap layout: the three lines
         become rows of black flap tiles (white letters, red seam), with no
         header, footer, or avatar. Rows must be ≤ 16 characters; empty lines
@@ -190,6 +194,8 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
           - "pixel" — HaxrCorp4089 verse, helvb08 header, Born2bSportyV2 footer
           - "sporty" — Born2bSportyV2 verse and header, helvb08 footer
           - "gravity" — GravityBold8 verse, helvb08 header/footer
+          - "blocky" — pure centered text (Born2bSportyV2), auto-fit to the
+            panel, no header/footer/avatar; >3 rows via "\\n" in the fields
           - "board" — airport split-flap grid; lines become flap rows
             (≤16 chars each), no header/footer/avatar, footer arg ignored
 

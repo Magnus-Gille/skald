@@ -1,39 +1,29 @@
 # Skald — Status
 
-**Last session:** 2026-05-24
+**Last session:** 2026-05-28
 **Branch:** master
-**Head:** c78fdfb
+**Head:** 0cb47d6 (+ uncommitted `blocky` style → PR pending)
 
 ## Completed This Session
 
-- **Font styles** (`c78fdfb`): four named presets (serif/pixel/sporty/gravity) selectable via `style` param on all write tools; style persists in state. Vendored four Flipper Zero TTFs: HaxrCorp4089, Born2bSportyV2, helvb08, GravityBold8.
-- **Two-column avatar layout**: left 50×122 px column for avatar image; all text shifts into right 200px column with dotted red vertical separator. Verse max-width validation accounts for narrower column.
-- **New MCP tools**: `display_set_avatar(data_base64)` and `display_clear_avatar()`. Both deployed to Pi via rsync + manual service restart.
-- **Skull avatar live on panel**: generated in PIL drawing code (no external image), uploaded via direct fastmcp HTTP client call (session MCP client had stale tool list from before restart).
-- CLAUDE.md updated: new tools, font style table, avatar layout section.
+- **Airport split-flap board** (`render_board`) + made it a selectable style `board`. Merged to master via PR #1 (`0cb47d6`). Flap tiles, white reverse-video letters, red seam; no header/footer/avatar; ≤16 chars/row.
+- **New `blocky` style** — pure centered text, no header/footer/avatar/dividers. Font Born2bSportyV2. `render_plain()` **auto-fits** the font size to fill the panel (3 short lines → big; 4–5 longer lines → shrinks to fit). >3 rows supported via `\n` in the three MCP verse fields. Validation is a no-op for this style (auto-fit can't overflow). Docs updated (CLAUDE.md table + note, MCP docstrings). **Committed locally + pushed to a branch; PR open — NOT yet merged.**
+- Iterated font choice live on hardware: helvb08 → haxrcorp4089 (too thin/hard to read) → Born2bSportyV2 (blocky + legible). Auto-fit resolved the "bigger vs more words vs more lines" tension.
+- Pi worktree was cleaned earlier (reset to origin/master); render_board deployed via PR→pull→restart.
 
-## Untracked (Codex session — review separately)
+## In Progress / To Reconcile
 
-A parallel Codex session produced:
-- `AGENTS.md` — Codex-flavored project instructions
-- `assets/lofi-avatar-{black,red,preview}.png` — cassette-tape avatar asset
-- `scripts/render_lofi_avatar.py` — PIL renderer for the cassette asset
-- `tests/test_lofi_avatar.py` — guards for canvas size, plane overlap, placement
-
-These are not committed. The lofi cassette is a better long-term avatar than the skull — consider deploying it once reviewed.
+- **Pi `layout.py` is a temporary file-sync** of the `blocky` work (uncommitted on the Pi). Once the `blocky` PR merges: `ssh skald 'cd ~/repos/skald && git stash && git pull && sudo systemctl restart skald-mcp.service'` to replace the temp file with the merged code. (The stash drops the redundant temp edits.)
+- Live panel currently shows a 5-line `blocky` test verse.
 
 ## Blockers
 
-- **Session MCP client doesn't reload after Pi service restart** — new tools added mid-session are invisible to the cached tool list; must call them via direct `fastmcp.Client` HTTP call. Workaround works fine.
-- **Sudo password needed for service restart** — Magnus must run `ssh skald "sudo systemctl restart skald-mcp.service"` manually after each deploy. A Makefile deploy target or sudoers entry for this one command would remove the friction.
+- **Sudo password needed for service restart** — every deploy needs `ssh skald "sudo systemctl restart skald-mcp.service"` run manually by Magnus. A sudoers rule for that one command would let deploys be fully automated. (Hit repeatedly this session — each style tweak = one manual restart.)
+- **Direct push to master is blocked** by the Claude Code auto-mode classifier → all deploys go via feature branch + PR.
 
 ## Next Steps
 
-1. **Review and commit the Codex lofi cassette avatar** — upload to panel via `display_set_avatar`, replacing the skull.
-2. **Makefile deploy target** — `make deploy` = rsync + remote restart (with sudoers rule for the restart command).
-3. **Tailscale** — expose `skald.local:8765` for off-LAN (Desktop/Web/Mobile) agent access.
-4. **Larger display** — top picks from 2026-05-12 research:
-   - Pimoroni Inky Impression 4" (7-color, 640×400) @ Botland
-   - Waveshare 4.2" tri-color B/W/R (400×300) @ BerryBase
-   - Waveshare 4.2" mono (400×300) @ BerryBase — cheapest, fastest refresh
-5. **Watch hourly hook** — adjust nudge text or throttle if it produces filler.
+1. **Merge the `blocky` PR**, then pull+restart on the Pi to drop the temp file-sync.
+2. **Sudoers rule** for `systemctl restart skald-mcp.service` (or a `make deploy` target) to end the manual-restart friction.
+3. Tailscale to expose `skald.local:8765` off-LAN.
+4. Larger display options (Inky Impression 4", Waveshare 4.2").

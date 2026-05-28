@@ -45,6 +45,16 @@ FONT_STYLES: dict[str, dict] = {
         "footer": ("helvb08.ttf", 10),
         "line_h": 20,
     },
+    # Pure-text blocky bitmap: three lines centered on a blank panel, no
+    # header, footer, avatar, or dividers. render() routes it to render_plain().
+    "blocky": {
+        # Size is nominal — render_plain() auto-fits the largest size that
+        # fills the panel for the given lines. Only the font family matters.
+        "verse": ("Born2bSportyV2.ttf", 20),
+        "header": ("Born2bSportyV2.ttf", 10),
+        "footer": ("Born2bSportyV2.ttf", 10),
+        "line_h": 24,
+    },
     # Airport split-flap board: the verse lines become rows of flap tiles.
     # No header, no footer, no avatar — render() routes this style to
     # render_board(). The font entry is unused (render_board sizes its own).
@@ -57,6 +67,7 @@ FONT_STYLES: dict[str, dict] = {
 }
 DEFAULT_STYLE = "serif"
 BOARD_STYLE = "board"
+PLAIN_STYLE = "blocky"  # pure centered text, no header/footer/avatar
 
 ROMAN = [
     "",
@@ -130,6 +141,10 @@ def measure_verse_overflow(
             if line and len(line) > BOARD_MAX_COLS:
                 bad.append({"line": i + 1, "chars": len(line), "max_chars": BOARD_MAX_COLS})
         return bad
+    if style == PLAIN_STYLE:
+        # render_plain auto-fits the font to whatever lines it's given, so
+        # there is no width to overflow — it just shrinks to fit.
+        return []
     probe = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
     draw = ImageDraw.Draw(probe)
     f_verse, _, _ = _fonts(style)
@@ -174,6 +189,8 @@ def render(
     if style == BOARD_STYLE:
         rows = [ln for ln in (verse or []) if ln and ln.strip()]
         return render_board(rows or [""])
+    if style == PLAIN_STYLE:
+        return render_plain(verse or [], style=style)
 
     now = now or datetime.now()
     black = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
@@ -223,6 +240,60 @@ def render(
 
     # --- Footer
     db.text((cx, CANVAS_H - 13), footer, font=f_f, fill=BLACK)
+
+    return black, red
+
+
+PLAIN_MARGIN = 3
+PLAIN_MAX_SIZE = 40
+PLAIN_MIN_SIZE = 8
+
+
+def render_plain(
+    verse: list[str],
+    style: str = PLAIN_STYLE,
+) -> tuple[Image.Image, Image.Image]:
+    """Pure centered text that auto-fits to fill the panel.
+
+    No header, footer, avatar, or dividers. Lines may be split across the
+    verse fields with "\\n" (the MCP tools expose only three fields, but the
+    board can show more rows). The font size is chosen as the largest that
+    fits every line within the panel width *and* gives each line an even
+    vertical band — so fewer/shorter lines render big, while 4–5 longer lines
+    shrink just enough to fill. The red plane stays blank.
+    """
+    black = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    red = Image.new("1", (CANVAS_W, CANVAS_H), WHITE)
+    db = ImageDraw.Draw(black)
+
+    rows: list[str] = []
+    for ln in (verse or []):
+        if ln:
+            rows.extend(part for part in ln.split("\n"))
+    rows = [r for r in rows if r and r.strip()]
+    if not rows:
+        return black, red
+
+    family = FONT_STYLES.get(style, FONT_STYLES[DEFAULT_STYLE])["verse"][0]
+    n = len(rows)
+    band = (CANVAS_H - 2 * PLAIN_MARGIN) / n
+    max_w = CANVAS_W - 12
+
+    font = _load_font(family, PLAIN_MIN_SIZE)
+    for size in range(PLAIN_MAX_SIZE, PLAIN_MIN_SIZE - 1, -1):
+        f = _load_font(family, size)
+        gb = db.textbbox((0, 0), "Mgyjpq", font=f)
+        glyph_h = gb[3] - gb[1]
+        widest = max(db.textbbox((0, 0), r, font=f)[2] for r in rows)
+        if glyph_h <= band * 0.82 and widest <= max_w:
+            font = f
+            break
+
+    for i, row in enumerate(rows):
+        gb = db.textbbox((0, 0), row, font=font)
+        glyph_h = gb[3] - gb[1]
+        y = int(PLAIN_MARGIN + i * band + (band - glyph_h) / 2 - gb[1])
+        _draw_centered(db, y, row, font, 6, CANVAS_W - 6)
 
     return black, red
 

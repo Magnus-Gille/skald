@@ -23,7 +23,7 @@ def cmd_preview(args: argparse.Namespace) -> int:
         black, red = layout.render_board(rows, seam=not args.no_seam)
     else:
         footer = args.footer if args.footer is not None else "the watch begins"
-        black, red = layout.render(verse=rows[:3], footer=footer, style=args.style)
+        black, red = layout.render(verse=rows, footer=footer, style=args.style)
     out = Path(args.out)
     DryRunDisplay(out_path=out).show(black, red)
     print(f"wrote {out} ({black.size[0]}x{black.size[1]} RGB w/ red, style={args.style})")
