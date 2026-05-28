@@ -77,6 +77,11 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
         "pixel" (HaxrCorp4089 + Born2bSportyV2), "sporty" (Born2bSportyV2),
         or "gravity" (GravityBold8). Omit to keep the current style.
 
+        "board" is special — the airport split-flap layout: the three lines
+        become rows of black flap tiles (white letters, red seam), with no
+        header, footer, or avatar. Rows must be ≤ 16 characters; empty lines
+        are dropped.
+
         Triggers a slow tri-color refresh (~15 seconds, visible flicker)
         and counts 1 against the 6/hour token bucket. If the bucket is
         empty, returns `{"ok": false, "error": "..."}` without touching
@@ -185,6 +190,8 @@ def build_server(dry_run: bool = False, out_path: Optional[Path] = None) -> Fast
           - "pixel" — HaxrCorp4089 verse, helvb08 header, Born2bSportyV2 footer
           - "sporty" — Born2bSportyV2 verse and header, helvb08 footer
           - "gravity" — GravityBold8 verse, helvb08 header/footer
+          - "board" — airport split-flap grid; lines become flap rows
+            (≤16 chars each), no header/footer/avatar, footer arg ignored
 
         Same width/length constraints as the single-field tools:
         verse lines must fit the panel pixel-width (measured using the chosen

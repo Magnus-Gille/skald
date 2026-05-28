@@ -12,17 +12,21 @@ from pathlib import Path
 def cmd_preview(args: argparse.Namespace) -> int:
     """Render a sample face to a PNG (for layout iteration without hardware)."""
     from . import layout
-    verse = args.verse or [
-        "the small lamp is patient,",
-        "the page does not hurry —",
-        "outside, a bird begins.",
-    ]
-    footer = args.footer if args.footer is not None else "the watch begins"
     from .display import DryRunDisplay
-    black, red = layout.render(verse=verse, footer=footer, now=datetime.now())
+    rows = args.rows or [
+        "DEPARTURES",
+        "NORTH    0900",
+        "VALHALLA  BRD",
+        "TOMORROW  DLY",
+    ]
+    if args.style == layout.BOARD_STYLE:
+        black, red = layout.render_board(rows, seam=not args.no_seam)
+    else:
+        footer = args.footer if args.footer is not None else "the watch begins"
+        black, red = layout.render(verse=rows[:3], footer=footer, style=args.style)
     out = Path(args.out)
     DryRunDisplay(out_path=out).show(black, red)
-    print(f"wrote {out} ({black.size[0]}x{black.size[1]} RGB w/ red)")
+    print(f"wrote {out} ({black.size[0]}x{black.size[1]} RGB w/ red, style={args.style})")
     return 0
 
 
@@ -44,10 +48,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="skald")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_prev = sub.add_parser("preview", help="render a sample face to a PNG")
+    p_prev = sub.add_parser("preview", help="render a sample board to a PNG")
     p_prev.add_argument("--out", default="/tmp/skald-preview.png")
-    p_prev.add_argument("--verse", nargs=3, metavar=("L1", "L2", "L3"), default=None)
-    p_prev.add_argument("--footer", default=None)
+    p_prev.add_argument("--rows", nargs="+", metavar="ROW", default=None,
+                        help="content lines (board rows / verse lines)")
+    p_prev.add_argument("--style", default="board",
+                        help="serif | pixel | sporty | gravity | board")
+    p_prev.add_argument("--footer", default=None,
+                        help="footer text (ignored for board style)")
+    p_prev.add_argument("--no-seam", action="store_true",
+                        help="omit the red split-flap seam (board style)")
     p_prev.set_defaults(func=cmd_preview)
 
     p_serve = sub.add_parser("serve", help="run the MCP HTTP server")

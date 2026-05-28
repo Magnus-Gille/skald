@@ -30,6 +30,15 @@ Pass `style` to any write tool. Style persists in state until changed.
 | `pixel` | HaxrCorp4089 20pt | helvb08 10pt | Born2bSportyV2 10pt |
 | `sporty` | Born2bSportyV2 15pt | Born2bSportyV2 10pt | helvb08 10pt |
 | `gravity` | GravityBold8 16pt (all-caps) | helvb08 10pt | helvb08 10pt |
+| `board` | GravityBold8, auto-sized | — (none) | — (none) |
+
+`board` is the **airport split-flap** layout, structurally different from the
+others: the verse lines become rows of black flap tiles with white reverse-video
+letters and a thin red seam across each tile. **No header, no footer, no avatar**
+— just the grid. Empty verse lines are dropped (no blank rows). Validation is by
+column count, not pixel width: each row must be ≤ 16 characters (longer rows would
+be truncated). Footer/avatar set in state are ignored while `board` is active and
+return when you switch back to another style.
 
 ## Avatar layout
 
