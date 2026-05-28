@@ -42,17 +42,19 @@ echo "==> stop any stop-gap dry-run MCP (port 8765)"
 pkill -f "skald serve" || true
 sleep 1
 
-echo "==> systemd unit"
-sudo install -m 0644 "$REPO_DIR/deploy/skald-mcp.service" /etc/systemd/system/skald-mcp.service
-sudo systemctl daemon-reload
+echo "==> user systemd unit (no sudo needed for restarts)"
+loginctl enable-linger "$USER"
+mkdir -p ~/.config/systemd/user
+install -m 0644 "$REPO_DIR/deploy/skald-mcp.service" ~/.config/systemd/user/skald-mcp.service
+systemctl --user daemon-reload
 
 echo "==> enable + start"
-sudo systemctl enable --now skald-mcp.service
+systemctl --user enable --now skald-mcp.service
 
 echo ""
 echo "Bootstrap complete."
-echo "  systemctl status skald-mcp.service"
-echo "  journalctl -u skald-mcp.service -f"
+echo "  systemctl --user status skald-mcp.service"
+echo "  journalctl --user -u skald-mcp.service -f"
 echo ""
 echo "If SPI was just enabled, the panel won't draw until you reboot:"
 echo "  sudo reboot"

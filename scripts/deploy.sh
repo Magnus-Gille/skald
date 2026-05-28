@@ -25,13 +25,13 @@ if [ ! -d .venv ]; then
     bash scripts/bootstrap-pi.sh
 else
     .venv/bin/pip install -e .[pi] --quiet
-    sudo install -m 0644 deploy/skald-mcp.service  /etc/systemd/system/skald-mcp.service
-    sudo install -m 0644 deploy/skald-tick.service /etc/systemd/system/skald-tick.service
-    sudo install -m 0644 deploy/skald-tick.timer   /etc/systemd/system/skald-tick.timer
-    sudo systemctl daemon-reload
-    sudo systemctl restart skald-mcp.service
+    mkdir -p ~/.config/systemd/user
+    install -m 0644 deploy/skald-mcp.service ~/.config/systemd/user/skald-mcp.service
+    systemctl --user daemon-reload
+    systemctl --user enable skald-mcp.service
+    systemctl --user restart skald-mcp.service
 fi
-systemctl status skald-mcp.service --no-pager -l | head -20
+systemctl --user status skald-mcp.service --no-pager -l | head -20
 EOF
 
 echo "==> deploy complete"
