@@ -76,10 +76,15 @@ uv run skald preview --out /tmp/skald-preview.png
 
 ## On the Pi
 
+`skald-mcp` runs as a **user** systemd service (`~/.config/systemd/user/`),
+so no sudo is needed to inspect or restart it. Linger is enabled, so it
+starts at boot without a login.
+
 ```bash
 ssh skald
-systemctl status skald-mcp.service
-sudo journalctl -u skald-mcp.service -f
+systemctl --user status skald-mcp.service
+systemctl --user restart skald-mcp.service   # no sudo
+journalctl --user -u skald-mcp.service -f
 ```
 
 ## Munin namespace
